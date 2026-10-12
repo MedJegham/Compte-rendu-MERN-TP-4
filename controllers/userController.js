@@ -1,101 +1,73 @@
-const { estNonVide, estEmailValide } = require('../utils/validators');
+const User = require('../models/userModel');
+const Article = require('../models/articleModel');
+const gererErreur = require('../utils/gererErreur');
 
-// Données isolées dans le contrôleur (en mémoire pour cette séance)
-let users = [
-    {
-        id: 1,
-        name: "Mohamed Jegham",
-        email: "mohamed@gmail.com",
-        role: "admin"
-    },
-    {
-        id: 2,
-        name: "Aya",
-        email: "aya@gmail.com",
-        role: "user"
+// 1. Récupérer tous les utilisateurs (GET /api/users, filtre optionnel ?role=...)
+const getAllUsers = async (req, res) => {
+    try {
+        const { role } = req.query;
+        const users = await User.find(role ? { role } : {});
+        res.status(200).json(users);
+    } catch (err) {
+        gererErreur(err, res);
     }
-];
-let prochainId = 3;
-
-// 1. Récupérer tous les utilisateurs (avec filtre optionnel ?role=...)
-const getAllUsers = (req, res) => {
-    const { role } = req.query;
-
-    let resultat = users;
-
-    if (role) {
-        resultat = users.filter(u => u.role === role);
-    }
-
-    res.status(200).json({
-        total: resultat.length,
-        users: resultat
-    });
 };
 
-// 2. Récupérer un utilisateur par son ID unique
-const getUserById = (req, res) => {
-    const id = Number(req.params.id);
-
-    const user = users.find(u => u.id === id);
-
-    if (!user) {
-        return res.status(404).json({
-            error: `Utilisateur ${id} introuvable`
-        });
+// 2. Récupérer un utilisateur par son identifiant (GET /api/users/:id)
+const getUserById = async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id);
+        if (!user) {
+            return res.status(404).json({ message: 'Utilisateur non trouvé' });
+        }
+        res.status(200).json(user);
+    } catch (err) {
+        gererErreur(err, res); // CastError -> 400 (Exercice 2)
     }
-
-    res.status(200).json(user);
 };
 
-// 3. Créer un nouvel utilisateur (name et email obligatoires)
-const createUser = (req, res) => {
-    const { name, email, role } = req.body;
+// 3. Créer un nouvel utilisateur (POST /api/users)
+const createUser = async (req, res) => {
+    try {
+        const { name, email, age, role, bio, phone } = req.body;
+        if (!name || !email) {
+            return res.status(400).json({ message: "Le nom et l'email sont requis" });
+        }
 
-    if (!estNonVide(name)) {
-        return res.status(400).json({
-            error: "Le nom est obligatoire et ne doit pas être vide"
-        });
+        // Vérification de doublon d'email
+        const exists = await User.findOne({ email: email.toLowerCase().trim() });
+        if (exists) {
+            return res.status(409).json({ message: 'Cet email est déjà utilisé' });
+        }
+
+        const user = await User.create({ name, email, age, role, bio, phone });
+        res.status(201).json(user);
+    } catch (err) {
+        gererErreur(err, res); // ValidationError -> 400
     }
-
-    if (!estEmailValide(email)) {
-        return res.status(400).json({
-            error: "L'email est obligatoire et doit contenir '@' et '.'"
-        });
-    }
-
-    const nouvelUser = {
-        id: prochainId++,
-        name: name.trim(),
-        email: email,
-        role: role || "user"
-    };
-
-    users.push(nouvelUser);
-
-    res.status(201).json({
-        message: "Utilisateur créé",
-        user: nouvelUser
-    });
 };
 
-// 4. Supprimer un utilisateur (DELETE /api/users/:id)
-const deleteUser = (req, res) => {
-    const id = Number(req.params.id);
+// 4. Supprimer un utilisateur (DELETE /api/users/:id) - Exercice 1
+const deleteUser = async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id);
+        if (!user) {
+            return res.status(404).json({ message: 'Utilisateur introuvable pour la suppression' });
+        }
 
-    const userExiste = users.some(u => u.id === id);
+        // Intégrité référentielle : interdit si l'utilisateur a au moins un article
+        const article = await Article.findOne({ author: req.params.id });
+        if (article) {
+            return res.status(400).json({
+                message: 'Impossible de supprimer un utilisateur ayant des articles publies'
+            });
+        }
 
-    if (!userExiste) {
-        return res.status(404).json({
-            error: `Impossible de supprimer : utilisateur ${id} introuvable`
-        });
+        await User.findByIdAndDelete(req.params.id);
+        res.status(200).json({ message: 'Utilisateur supprimé avec succès', id: req.params.id });
+    } catch (err) {
+        gererErreur(err, res);
     }
-
-    users = users.filter(u => u.id !== id);
-
-    res.status(200).json({
-        message: `Utilisateur ${id} supprimé avec succès`
-    });
 };
 
 module.exports = {
