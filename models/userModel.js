@@ -16,13 +16,29 @@ const userSchema = new mongoose.Schema(
             trim: true,
             match: [
                 /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-                "Format d'email invalide (ex. : aya@polytechnique.tn)"
+                'Format d’email invalide (ex. : aya@polytechnique.tn)'
             ]
         },
 
         age: {
             type: Number,
             min: [4, "L'âge minimum autorisé est de 4 ans"]
+        },
+
+        bio: {
+            type: String,
+            maxlength: [200, 'La biographie ne peut pas dépasser 200 caractères']
+        },
+
+        phone: {
+            type: String,
+            match: [/^\d{8}$/, 'Numéro de 8 chiffres requis']
+        },
+
+        password: {
+            type: String,
+            required: [true, 'Le mot de passe est obligatoire'],
+            minlength: [6, 'Le mot de passe doit comporter au moins 6 caractères']
         },
 
         role: {
@@ -32,23 +48,9 @@ const userSchema = new mongoose.Schema(
                 message: "{VALUE} n'est pas un rôle autorisé"
             },
             default: 'user'
-        },
-
-        // Exercice 1 : biographie optionnelle limitée à 200 caractères
-        bio: {
-            type: String,
-            trim: true,
-            maxlength: [200, 'La biographie ne peut pas dépasser 200 caractères']
-        },
-
-        // Exercice 1 : téléphone validé par regex (8 chiffres)
-        phone: {
-            type: String,
-            trim: true,
-            match: [/^\d{8}$/, 'Numéro de 8 chiffres requis']
         }
     },
-    { timestamps: true } // Ajoute automatiquement createdAt et updatedAt
+    { timestamps: true }
 );
 
 module.exports = mongoose.model('User', userSchema);
